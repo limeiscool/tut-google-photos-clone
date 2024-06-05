@@ -10,6 +10,6 @@ cloudinary.config({
 
 
 export async function GET() {
-  const { resources } = await cloudinary.api.resources();
+  const { resources } = await cloudinary.api.resources_by_tag(process.env.NEXT_PUBLIC_CLOUDINARY_LIBRARY_TAG as string);
   return Response.json({ data: resources });
 }
