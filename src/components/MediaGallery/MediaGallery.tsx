@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Plus, X, Save } from 'lucide-react';
-import { CldImage } from 'next-cloudinary'
+import { Plus, X, Save, Loader2 } from 'lucide-react';
+
+
+import CldImage from '../CldImage';
 
 import Container from '@/components/Container';
 import { Button } from '@/components/ui/button';
@@ -14,22 +16,72 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { CloudinaryResource } from '@/types/cloudinary';
 
 import { useResources } from '@/hooks/useResources';
+import { getCollage } from '@/lib/creations';
 
 interface MediaGalleryProps {
   resources: Array<CloudinaryResource>;
   tag?: string;
 }
 
+interface Creation {
+  state: string;
+  url: string;
+  type: string;
+}
+
 const MediaGallery = ({ resources: initialResources, tag }: MediaGalleryProps) => {
 
-  const { resources } = useResources({
+  const { resources, addResources } = useResources({
     initialResources,
     tag
   }) 
 
 
   const [selected, setSelected] = useState<Array<string>>([]);
-  const [creation, setCreation] = useState();
+  const [creation, setCreation] = useState<Creation>();
+
+  /**
+   * handleOnCreateCollage
+   */
+  function handleOnCreateCollage() {
+    setCreation({
+      state: 'created',
+      url: getCollage(selected),
+      type: 'collage',
+    })
+  }
+
+  /**
+   * handleOnSaveCreation
+   */
+
+  async function handleOnSaveCreation() {
+    if (typeof creation?.url !== 'string' || creation?.state === 'saving') {
+      return;
+    }
+
+    setCreation((prev) => {
+      if (!prev) {
+        return;
+      }
+      return {
+        ...prev,
+        state: 'saving'
+      }
+    })
+    await fetch(creation.url)
+
+    const {data} = await fetch('/api/upload', {
+      method: 'POST',
+      body: JSON.stringify({
+        url: creation.url
+      })
+    }).then(res => res.json())
+
+    addResources([data])
+    setCreation(undefined);
+    setSelected([]);
+  }
 
   /**
    * handleOnClearSelection
@@ -58,9 +110,32 @@ const MediaGallery = ({ resources: initialResources, tag }: MediaGalleryProps) =
           <DialogHeader>
             <DialogTitle>Save your creation?</DialogTitle>
           </DialogHeader>
+          {creation?.url && (
+            <div>
+              <CldImage 
+                width={1200}
+                height={1200}
+                crop={{
+                  type: 'fill',
+                  source: true,
+                }}
+                src={creation.url}
+                alt='Creation'
+                preserveTransformations
+              />
+            </div>
+          )}
           <DialogFooter className="justify-end sm:justify-end">
-            <Button>
-              <Save className="h-4 w-4 mr-2" />
+            <Button
+              onClick={handleOnSaveCreation}
+            >
+              {creation?.state === 'saving' && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
+              {creation?.state !== 'saving' && (
+                <Save className="h-4 w-4 mr-2" />
+              )}
+              
               Save to Library
             </Button>
           </DialogFooter>
@@ -95,9 +170,13 @@ const MediaGallery = ({ resources: initialResources, tag }: MediaGalleryProps) =
                 </DropdownMenuTrigger>
                 <DropdownMenuContent className="w-56">
                   <DropdownMenuGroup>
-                    <DropdownMenuItem>
-                      <span>Option</span>
+                    {selected.length > 1 && (
+                      <DropdownMenuItem
+                      onClick={handleOnCreateCollage}
+                    >
+                      <span>Collage</span>
                     </DropdownMenuItem>
+                    )}
                   </DropdownMenuGroup>
                 </DropdownMenuContent>
               </DropdownMenu>

@@ -9,7 +9,12 @@ cloudinary.config({
 
 
 
-export async function GET() {
-  const { resources } = await cloudinary.api.resources_by_tag(String(process.env.NEXT_PUBLIC_CLOUDINARY_LIBRARY_TAG));
-  return Response.json({ data: resources });
+export async function POST(request: Request) {
+  const { publicId } = await request.json();
+
+  const results = await cloudinary.api.delete_resources([publicId])
+
+  return Response.json({
+    data: results
+  })
 }
